@@ -1,0 +1,10 @@
+{
+  "platform": "instagram",
+  "text": "<your caption here — punchy, in the operator's voice. Ends with 2-4 relevant hashtags, never zero. #Example #Template>",
+  "media": "/absolute/path/to/image.jpg",
+  "drafted_at": "<iso-8601>",
+  "drafted_by": "<agent, e.g. hammer>",
+  "voice": "<voice profile, e.g. operator-ig>",
+  "critic_verdict": "APPROVE",
+  "notes": "<reviewer notes, e.g. bank image reused, uses=3>"
+}

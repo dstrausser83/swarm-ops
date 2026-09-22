@@ -1,0 +1,62 @@
+# --- credentials, tokens, keys: NEVER commit ---
+.env
+.env.*
+*.env
+credentials*
+*secret*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.p12
+*.pfx
+*token*
+*apikey*
+*api_key*
+
+# --- browser profiles, cookies, login state: NEVER commit ---
+*profile*/
+chrome-profile/
+*-profile/
+cookies*
+*cookies*.json
+*.sqlite
+Login\ Data
+Web\ Data
+
+# --- generated media and state (rebuilt by the pipeline) ---
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.bmp
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+bank.json
+video_bank.json
+manifest.json
+PROMPTS.txt
+daily-counts.json
+log.jsonl
+drafter.log
+llm_fallbacks.log
+cleanup.log
+
+# --- runtime dirs (queue/state/published are local, not shared) ---
+queue/
+state/
+published/
+hidden_files/
+media/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# --- mission inbox/outbox contents (may contain operator data) ---
+*.mission.json
+result-*.json

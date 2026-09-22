@@ -1,0 +1,44 @@
+#!/bin/bash
+# pc-mission: queue a mission card for a PC agent (free local Ollama).
+# Usage: pc-mission <scout|hammer|scribe|analyst|critic> "mission text" [--wait [timeout_s]]
+# Env: PC_SSH_HOST (default rockpc), PC_SSH_USER (filters the SSH banner).
+# (see header for full usage)
+# The PC poller picks up cards within ~1 min and writes results to the outbox.
+# With --wait, polls the outbox for the result (default 180s).
+set -euo pipefail
+
+AGENT="${1:?usage: pc-mission <agent> \"mission text\" [--wait [timeout_s]]}"
+MESSAGE="${2:?usage: pc-mission <agent> \"mission text\" [--wait [timeout_s]]}"
+WAIT=0
+TIMEOUT=180
+if [[ "${3:-}" == "--wait" ]]; then WAIT=1; TIMEOUT="${4:-180}"; fi
+
+STAMP=$(date +%m%d%H%M%S)
+MISSION_ID="ROCK-${AGENT^^}-${STAMP}"
+CARD="/tmp/${MISSION_ID}.json"
+UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+cat > "$CARD" <<EOF
+{"missionId":"$MISSION_ID","agent":"$AGENT","from":"rock","chain":"<operator>>Rock>${AGENT^}","message":$(printf '%s' "$MESSAGE" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'),"utc":"$UTC"}
+EOF
+
+scp -F ~/.ssh/config -q "$CARD" "${PC_SSH_HOST:-rockpc}:C:/Scout/missions/inbox/${MISSION_ID}.json"
+rm -f "$CARD"
+echo "queued $MISSION_ID"
+
+if [[ "$WAIT" == "1" ]]; then
+  RESULT="C:/Scout/missions/outbox/result-${MISSION_ID}.json"
+  ELAPSED=0
+  while [[ $ELAPSED -lt $TIMEOUT ]]; do
+    OUT=$(~/workspace/bin/pc-ssh <<< "powershell -NoProfile -Command \"\$r=Get-Content '$RESULT' -Raw -EA SilentlyContinue|ConvertFrom-Json; if(\$r){\$r.status+'|'+(\$r.runId)}\"" 2>/dev/null | grep -o 'DONE|[0-9a-f-]*\|FAILED|[0-9a-f-]*' | head -1 || true)
+    if [[ -n "$OUT" ]]; then
+      STATUS="${OUT%%|*}"; RUNID="${OUT##*|}"
+      echo "status: $STATUS"
+      ~/workspace/bin/pc-ssh <<< "powershell -NoProfile -Command \"Get-Content 'C:/Scout/logs/poller-${RUNID}.out' -Raw -EA SilentlyContinue\"" 2>/dev/null | grep -av "${PC_SSH_USER:-user}@|Microsoft|reserved|Pseudo" | sed -n '/^$/,$p' | grep -v "${PC_SSH_USER:-user}@" | head -30
+      exit 0
+    fi
+    sleep 10; ELAPSED=$((ELAPSED+10))
+  done
+  echo "timeout waiting for $MISSION_ID"
+  exit 1
+fi
