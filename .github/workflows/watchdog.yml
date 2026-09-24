@@ -1,0 +1,39 @@
+name: swarm-watchdog
+# Free-tier public-site health monitor. Public repo = unmetered Actions minutes.
+# Probes deadbrands.co every 5 min; files/comments on ONE standing issue on failure.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - id: probe
+        run: |
+          {
+            echo "## probe $(date -u +%FT%TZ)"
+            fail=0
+            for u in https://deadbrands.co/ https://deadbrands.co/blog/ https://deadbrands.co/feed.xml; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 -A 'swarm-watchdog/1.0' "$u") || code=000
+              echo "- $u -> $code"
+              case "$code" in 2*|3*) ;; *) fail=1;; esac
+            done
+            echo "fail=$fail" >> "$GITHUB_OUTPUT"
+          } | tee probe.md
+      - name: file or update issue on failure
+        if: steps.probe.outputs.fail == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[watchdog] public endpoint probe failing"
+          num=$(gh issue list --search "$title in:title" --state open --json number -q '.[0].number')
+          if [ -z "$num" ]; then
+            gh issue create --title "$title" --body-file probe.md
+          else
+            gh issue comment "$num" --body-file probe.md
+          fi
